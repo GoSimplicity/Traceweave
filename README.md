@@ -4,7 +4,7 @@ Reusable business queries for humans and AI.
 
 Traceweave 是一个处于设计阶段的业务查询工作台，面向开发者、技术支持、业务分析人员，以及通过 MCP 接入的 AI 助手。它希望把一次查询中用到的步骤、参数关系和业务口径保存下来，让下一次换个订单、用户或时间范围时，无需从头找表、复制 ID、修改 SQL。
 
-> **当前状态：基础骨架。** 已创建 Rust 核心空库、Vue＋TypeScript 空页面和 Tauri 2 桌面入口。桌面壳用于加载前端，没有业务逻辑、IPC 命令、数据库连接、安装包或 MCP 服务。下文描述的是产品设计与开发计划。
+> **当前状态：基础骨架。** 已建立 Rust 核心模块、前端功能目录、Tauri 2 桌面入口，以及测试和迁移目录。新增模块只有声明和职责说明；桌面仍显示空页面，没有业务逻辑、IPC 命令、数据库连接、安装包或 MCP 服务。下文产品能力仍是开发计划。
 
 ## 从一次探索到重复执行
 
@@ -46,15 +46,87 @@ AI 助手也应能在新会话中找到这条链路，读取输入要求与业�
 2. 实现核心、CLI 和 MCP，跑通“首次探索 → 保存链路 → 更换参数 → 新会话复用”。
 3. 完成人类工作台，让人和 AI 都能完成同一条查询流程。
 
+## 代码目录与开发边界
+
+```text
+Traceweave/
+├── Cargo.toml                 # 核心 package + 两个 package 的 workspace
+├── Cargo.lock                 # 统一 Rust 依赖锁文件
+├── src/
+│   ├── lib.rs                 # 共享核心模块入口
+│   ├── application/           # 共用用例入口与输入输出契约
+│   ├── workspace/             # 数据源引用、授权范围、时间约定
+│   ├── catalog/               # 结构目录、采集覆盖状态、差异
+│   ├── exploration/           # 探索会话、查询草稿、显式绑定
+│   ├── chain/                 # 链路、参数、依赖、时间窗口、版本
+│   ├── executor/              # 调度、结果、取消、重跑
+│   ├── policy/                # 范围、只读规则、输出与资源限制
+│   ├── postgres/              # 业务库连接、元数据读取、参数化查询
+│   ├── store/                 # SQLite 元数据、历史、迁移
+│   ├── credentials/           # 系统凭据与会话凭据生命周期
+│   ├── adapters/
+│   │   ├── cli/               # 命令行输入输出适配
+│   │   └── mcp/               # MCP 协议与工具适配
+│   └── bin/                   # CLI/MCP 可执行入口预留，当前只有说明
+├── migrations/                # 仅本地 SQLite，当前没有 SQL
+├── tests/
+│   └── fixtures/              # 核心集成测试与合成数据预留
+└── frontend/
+    ├── package.json           # 前端及桌面开发命令
+    ├── index.html             # WebView/浏览器页面入口
+    ├── src/
+    │   ├── main.ts            # Vue 启动
+    │   ├── App.vue            # 当前空白根组件
+    │   ├── app/               # 布局、导航、跨功能页面组装
+    │   ├── features/
+    │   │   ├── workspace/     # 工作区、初始化、范围选择
+    │   │   ├── catalog/       # 结构浏览与采集状态
+    │   │   ├── exploration/   # SQL 探索、步骤与绑定
+    │   │   ├── chain/         # 链路检索、编辑与版本确认
+    │   │   └── runs/          # 当前执行、结果、历史与重跑
+    │   ├── components/        # 跨功能展示组件
+    │   ├── composables/       # 跨功能响应式逻辑
+    │   ├── lib/ipc/           # 桌面调用、事件和传输类型边界
+    │   ├── styles/            # 全局样式与设计变量
+    │   └── assets/            # 参与前端构建的静态资源
+    ├── src-tauri/
+    │   ├── Cargo.toml         # 薄桌面 package，依赖根核心
+    │   ├── build.rs           # Tauri 构建准备
+    │   ├── tauri.conf.json    # 窗口、资源与安全配置
+    │   ├── capabilities/     # 系统能力授权预留，当前无授权文件
+    │   ├── icons/             # 桌面占位图标
+    │   └── src/
+    │       ├── main.rs        # 桌面启动入口
+    │       ├── commands/      # IPC 命令适配，当前无注册命令
+    │       └── state/         # 桌面进程资源与服务句柄
+    └── tests/
+        └── e2e/              # 跨功能与端到端测试预留
+```
+
+Rust 目录使用 `mod.rs` 作为模块入口，已由 `lib.rs` 或桌面 `main.rs` 声明，因此会参与编译检查。前端、测试和迁移预留目录用简短 README 保存职责，尚未接入运行流程；不通过空函数、假数据或未实现接口占位。
+
+后续代码按以下边界落位：
+
+- **调用方向**：Vue 功能 → `lib/ipc` → 桌面 `commands` → 核心 `application`；CLI/MCP 适配器也调用 `application`，由它协调核心模块。这是待落实的开发约定，当前没有整条调用链。
+- **核心出口**：只公开 `application` 和 `adapters` 模块，业务模块先保持库内私有。新增跨入口契约从应用层定义或显式重导出，不让桌面直接调用数据库模块。
+- **状态归属**：业务范围、链路版本、执行状态以 Rust 为准；前端管理输入草稿、选择、加载和展示状态。数据库连接与系统凭据由 Rust 持有。
+- **功能归属**：页面、局部组件、局部 composable 和测试先放对应 `features` 目录。`runs` 同时承载当前执行和历史；不同功能间只做明确的单向复用，避免循环引用。有实际共用代码时再提取到公共目录。
+- **新增文件**：例如结构采集的规则放 `catalog`，实际 PG 访问放 `postgres`，结构树组件放 `features/catalog`。每个模块按实际代码增长拆文件，不统一铺设空的 controller/service/repository 层。
+- **测试与迁移**：模块单测就近放置，跨模块及数据库集成测试放根 `tests`，界面完整流程放 `frontend/tests/e2e`。`migrations` 只服务 SQLite；业务 PG 的隔离测试样本放 `tests/fixtures`。
+
+当前没有 CLI/MCP 可执行文件、路由、全局状态库、数据库驱动或测试框架。实现第一个相关用例时再引入所需依赖和真实测试。目录边界依据既定产品范围划分，不意味着其中能力已经实现。
+
+目录约定参考 [Cargo 项目布局](https://doc.rust-lang.org/cargo/guide/project-layout.html)、[Rust 模块文件](https://doc.rust-lang.org/book/ch07-05-separating-modules-into-different-files.html)和 [Tauri 前后端调用](https://v2.tauri.app/develop/calling-rust/)；前端按产品功能分组是本项目的组织选择。
+
 ## 本地开发
 
-Rust 核心使用 Rust 2024 edition，无第三方依赖。根目录 `Cargo.toml` 同时定义核心 package 和 workspace；`src/lib.rs` 是共享核心入口，目前只有模块说明。`frontend/src-tauri/` 是依赖核心的薄桌面 package，单独持有 Tauri 依赖。
+Rust 核心使用 Rust 2024 edition，无第三方依赖。根目录 `Cargo.toml` 同时定义核心 package 和 workspace；`src/lib.rs` 是共享核心入口，目前只有模块声明和职责说明。`frontend/src-tauri/` 是依赖核心的薄桌面 package，单独持有 Tauri 依赖。
 
 在仓库根目录检查骨架：
 
 ```sh
 cargo check --locked --offline
-cargo fmt --check
+cargo fmt --all --check
 ```
 
 Rust 骨架验证环境为 Rust/Cargo 1.96.0。根目录的默认 Cargo 命令仅检查核心；桌面依赖最低要求 Rust 1.90。当前没有业务测试。
