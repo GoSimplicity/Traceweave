@@ -4,7 +4,7 @@ Reusable business queries for humans and AI.
 
 Traceweave 是一个处于设计阶段的业务查询工作台，面向开发者、技术支持、业务分析人员，以及通过 MCP 接入的 AI 助手。它希望把一次查询中用到的步骤、参数关系和业务口径保存下来，让下一次换个订单、用户或时间范围时，无需从头找表、复制 ID、修改 SQL。
 
-> **当前状态：尚未实现。** 仓库目前只有项目说明和基础配置，没有可运行程序、安装包或 MCP 服务。下文描述的是产品设计与开发计划。
+> **当前状态：基础骨架。** 已创建无业务代码的 Rust 核心库和 Vue＋TypeScript 前端空页面。前后端尚未连接，没有桌面程序、安装包或 MCP 服务。下文描述的是产品设计与开发计划。
 
 ## 从一次探索到重复执行
 
@@ -38,7 +38,7 @@ AI 助手也应能在新会话中找到这条链路，读取输入要求与业�
 
 核心使用 Rust，从一个 Cargo package 开始，让 CLI、stdio MCP 和后续工作台复用应用逻辑；有实际依赖隔离需求时再拆分 crate。
 
-拟采用 PostgreSQL 作为首版业务数据库，SQLite 保存本地元数据。人类工作台候选为 Tauri 2、Vue 3 与 TypeScript。这些选型尚待技术样机验证，当前仓库没有引入相关依赖。
+拟采用 PostgreSQL 作为首版业务数据库，SQLite 保存本地元数据。前端骨架使用 Vue 3、TypeScript 与 Vite；桌面壳候选为 Tauri 2。数据库与桌面选型尚待技术样机验证，当前未引入相关依赖。
 
 开发将按以下顺序推进：
 
@@ -46,7 +46,30 @@ AI 助手也应能在新会话中找到这条链路，读取输入要求与业�
 2. 实现核心、CLI 和 MCP，跑通“首次探索 → 保存链路 → 更换参数 → 新会话复用”。
 3. 完成人类工作台，让人和 AI 都能完成同一条查询流程。
 
-构建、安装与测试命令将在对应实现可用后补充。详细设计文档和本地开发约定不随仓库分发。
+## 本地开发
+
+Rust 核心使用 Rust 2024 edition，无第三方依赖。目录中的 `Cargo.toml` 定义唯一的 Rust package，`src/lib.rs` 是共享核心入口，目前只有模块说明。
+
+在仓库根目录检查骨架：
+
+```sh
+cargo check --locked --offline
+cargo fmt --check
+```
+
+Rust 骨架验证环境为 Rust/Cargo 1.96.0。尚无 Rust 可执行入口和业务测试，不能使用 `cargo run` 启动应用。
+
+前端位于 `frontend/`，使用 npm 管理依赖。Node.js 需满足 Vite 的要求：20.19+（20.x）或 22.12+；建议使用受支持的 LTS 版本。
+
+```sh
+cd frontend
+npm ci
+npm run dev
+```
+
+打开终端打印的本地地址，当前应显示空白页面。入口关系为 `index.html` → `src/main.ts` → `src/App.vue`，尚未连接 Rust。运行 `npm run build` 会先检查 TypeScript/Vue 类型，再生成 `dist/`。依赖精确版本记录在 `package.json` 和 `package-lock.json` 中。
+
+详细设计文档和本地开发约定不随仓库分发。
 
 ## 许可证
 
