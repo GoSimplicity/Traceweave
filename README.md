@@ -4,7 +4,7 @@ Reusable business queries for humans and AI.
 
 Traceweave 是一个处于设计阶段的业务查询工作台，面向开发者、技术支持、业务分析人员，以及通过 MCP 接入的 AI 助手。它希望把一次查询中用到的步骤、参数关系和业务口径保存下来，让下一次换个订单、用户或时间范围时，无需从头找表、复制 ID、修改 SQL。
 
-> **当前状态：基础骨架。** 已创建无业务代码的 Rust 核心库和 Vue＋TypeScript 前端空页面。前后端尚未连接，没有桌面程序、安装包或 MCP 服务。下文描述的是产品设计与开发计划。
+> **当前状态：基础骨架。** 已创建 Rust 核心空库、Vue＋TypeScript 空页面和 Tauri 2 桌面入口。桌面壳用于加载前端，没有业务逻辑、IPC 命令、数据库连接、安装包或 MCP 服务。下文描述的是产品设计与开发计划。
 
 ## 从一次探索到重复执行
 
@@ -38,7 +38,7 @@ AI 助手也应能在新会话中找到这条链路，读取输入要求与业�
 
 核心使用 Rust，从一个 Cargo package 开始，让 CLI、stdio MCP 和后续工作台复用应用逻辑；有实际依赖隔离需求时再拆分 crate。
 
-拟采用 PostgreSQL 作为首版业务数据库，SQLite 保存本地元数据。前端骨架使用 Vue 3、TypeScript 与 Vite；桌面壳候选为 Tauri 2。数据库与桌面选型尚待技术样机验证，当前未引入相关依赖。
+拟采用 PostgreSQL 作为首版业务数据库，SQLite 保存本地元数据，尚未引入数据库依赖。前端骨架使用 Vue 3、TypeScript 与 Vite，桌面壳使用 Tauri 2；完整工作台能力仍待技术样机验证。
 
 开发将按以下顺序推进：
 
@@ -48,7 +48,7 @@ AI 助手也应能在新会话中找到这条链路，读取输入要求与业�
 
 ## 本地开发
 
-Rust 核心使用 Rust 2024 edition，无第三方依赖。目录中的 `Cargo.toml` 定义唯一的 Rust package，`src/lib.rs` 是共享核心入口，目前只有模块说明。
+Rust 核心使用 Rust 2024 edition，无第三方依赖。根目录 `Cargo.toml` 同时定义核心 package 和 workspace；`src/lib.rs` 是共享核心入口，目前只有模块说明。`frontend/src-tauri/` 是依赖核心的薄桌面 package，单独持有 Tauri 依赖。
 
 在仓库根目录检查骨架：
 
@@ -57,7 +57,7 @@ cargo check --locked --offline
 cargo fmt --check
 ```
 
-Rust 骨架验证环境为 Rust/Cargo 1.96.0。尚无 Rust 可执行入口和业务测试，不能使用 `cargo run` 启动应用。
+Rust 骨架验证环境为 Rust/Cargo 1.96.0。根目录的默认 Cargo 命令仅检查核心；桌面依赖最低要求 Rust 1.90。当前没有业务测试。
 
 前端位于 `frontend/`，使用 npm 管理依赖。Node.js 需满足 Vite 的要求：20.19+（20.x）或 22.12+；建议使用受支持的 LTS 版本。
 
@@ -68,6 +68,26 @@ npm run dev
 ```
 
 打开终端打印的本地地址，当前应显示空白页面。入口关系为 `index.html` → `src/main.ts` → `src/App.vue`，尚未连接 Rust。运行 `npm run build` 会先检查 TypeScript/Vue 类型，再生成 `dist/`。依赖精确版本记录在 `package.json` 和 `package-lock.json` 中。
+
+### 桌面空窗口
+
+本步验证目标为 macOS，需安装 Xcode Command Line Tools 或完整 Xcode。其他平台的系统依赖见 [Tauri 官方前置条件](https://v2.tauri.app/start/prerequisites/)。
+
+在 `frontend/` 目录运行：
+
+```sh
+npm run tauri -- dev
+```
+
+该命令自动启动 Vite，再编译并打开桌面窗口；无需另外运行 `npm run dev`。开发服务器固定使用 `127.0.0.1:5173`，端口占用时会报错，不自动换端口。当前窗口内容为空，没有向前端开放系统操作权限或业务命令。
+
+构建嵌入前端资源的本地调试程序（不生成安装包）：
+
+```sh
+npm run tauri -- build --debug --no-bundle
+```
+
+macOS 可执行文件位于根目录 `target/debug/traceweave-desktop`。应用标识 `local.traceweave.desktop` 仅用于当前本地开发；使用满足 Tauri 编译要求的纯色占位 PNG，签名、分发标识和正式图标尚未配置。Rust 依赖统一记录在根目录 `Cargo.lock`，Tauri 生成的 `gen/` 与构建产物不纳入 Git。
 
 详细设计文档和本地开发约定不随仓库分发。
 

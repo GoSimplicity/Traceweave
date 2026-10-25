@@ -5,3 +5,8 @@ edition = "2024"
 description = "Reusable business queries for humans and AI."
 license = "Apache-2.0"
 publish = false
+
+[workspace]
+members = ["frontend/src-tauri"]
+default-members = ["."]
+resolver = "3"
